@@ -20,6 +20,7 @@ goals of this compiler.
   - [Scope](#scope)
   - [Errors](#errors)
 - [Preprocessing](#preprocessing)
+  - [Bundling #include files](#bundling-include-files)
 - [Manipulating and Searching ASTs](#manipulating-and-searching-asts)
   - [Visitors](#visitors)
   - [Utility Functions](#utility-functions)
@@ -310,6 +311,47 @@ preprocessAst(ast);
 // core glsl parser
 const preprocessed = generate(ast);
 ```
+
+### Bundling #include files
+
+`parseShaderBundle` recursively expands `#include "relative/path"`
+directives into a single GLSL source string. Unlike a naive string replace,
+it parses every file with the preprocessor grammar and reuses the same
+conditional/macro evaluation as `preprocessAst`, so an `#include` inside an
+untaken `#if 0` branch is never even read.
+
+```typescript
+import { parseShaderBundle } from '@shaderfrog/glsl-parser';
+
+const { code, files, map, diagnostics } = parseShaderBundle('main.glsl', {
+  // Required. Resolve a path (paths are normalized to POSIX, root-relative
+  // form) to file text, or null/undefined when the file does not exist.
+  read: (path) => virtualFiles[path] ?? null,
+  // Optional predefined macros, same shape as preprocessor defines
+  defines: { MAX_LIGHTS: 4 },
+  // Optional, defaults to false. When true, any error diagnostic throws a
+  // ShaderBundleError carrying all collected diagnostics.
+  strict: false,
+});
+```
+
+The returned object is:
+
+- `code`: the bundled source. Each expanded fragment is preceded by a
+  standard `#line <line> "<file>"` directive, and the entry point's
+  `#version` stays on the first output line.
+- `files`: every contributing path, in first-visit order. A path's body is
+  emitted at most once; `#pragma once` guarantees the same, and include
+  cycles are reported instead of looped on.
+- `map`: `{ generatedLine, file, line }` entries mapping each generated
+  line back to its source file and line.
+- `diagnostics`: `{ code, file, line, message }` entries. Error codes are
+  `INCLUDE_NOT_FOUND`, `INCLUDE_OUTSIDE_ROOT` (absolute paths or `..`
+  escaping the entry directory), `INCLUDE_CYCLE`, and
+  `VERSION_IN_INCLUDE`.
+
+Include paths are resolved relative to the including file's directory and
+must stay inside the entry point's directory.
 
 ## Accessing the raw Peggy parser
 

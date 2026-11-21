@@ -9,14 +9,16 @@ tsconfig.tsbuildinfo
 src/parser/parser.js
 src/preprocessor/preprocessor-parser.js
 
-# Peggy / typescript built files
-ast/
-error.d.ts
-error.js
-index.d.ts
-index.js
-parser/
-preprocessor/
+# Peggy / typescript built files. Leading "/" anchors these to the repo root
+# so they match the published build-artifact copies (see prepublish.sh), not
+# the source trees under src/.
+/ast/
+/error.d.ts
+/error.js
+/index.d.ts
+/index.js
+/parser/
+/preprocessor/
 
 # Typescript builds these?
 vite.config.d.ts

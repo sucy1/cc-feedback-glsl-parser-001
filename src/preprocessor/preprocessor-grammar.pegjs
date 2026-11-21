@@ -1,0 +1,378 @@
+/**
+ * This grammar is based on:
+ * Khronos Shading Language Version 4.60.7
+ * https://www.khronos.org/registry/OpenGL/specs/gl/GLSLangSpec.4.60.pdf
+ *
+ * And I used some Microsoft preprocessor documentation for the grammar base:
+ * https://docs.microsoft.com/en-us/cpp/preprocessor/grammar-summary-c-cpp?view=msvc-160
+ *
+ * And grammar spec starting on PDF page 157 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1256.pdf
+ * And compiler explorer https://godbolt.org which lets you run preprocessor examples
+ */
+
+{{
+  import {
+    unescapeSrc
+  } from './preprocessor.js';
+}}
+
+{
+  // Remove escaped newlines before parsing
+  input = unescapeSrc(input);
+
+  // Attach the peggy source location to every AST node, so the bundle
+  // preprocessor can map generated lines back to source lines.
+  const node = (type, attrs) => ({
+    type,
+    loc: location(),
+    ...attrs
+  });
+
+  // Filter out "empty" elements from an array
+  const xnil = (...args) => args.flat().filter(e =>
+    e !== undefined && e !== null && e !== '' && e.length !== 0
+  )
+
+  const ifOnly = arr => arr.length > 1 ? arr : arr[0];
+
+  // Remove empty elements and return value if only 1 element remains
+  const collapse = (...args) => ifOnly(xnil(args.flat()));
+
+  // Create a left associative tree of nodes
+	const leftAssociate = (...nodes) =>
+    nodes.flat().reduce((current, [operator, expr]) => ({
+      type: 'binary',
+      operator: operator,
+      left: current,
+      right: expr
+    }));
+}
+
+start = program
+
+program = 
+  program:text_or_control_lines
+  wsEnd:_? {
+    return node('program', { program: program.blocks, wsEnd });
+  }
+
+// GLSL only allows for integers in constant expressions
+INTCONSTANT = token:integer_constant _:_? { return node('int_constant', { token, wsEnd: _ }); }
+
+LEFT_OP = token:"<<" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+RIGHT_OP = token:">>" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+LE_OP = token:"<=" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+GE_OP = token:">=" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+EQ_OP = token:"==" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+NE_OP = token:"!=" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+AND_OP = token:"&&" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+OR_OP = token:"||" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+
+LEFT_PAREN = token:"(" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+RIGHT_PAREN = token:")" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+COMMA = token:"," _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+BANG = token:"!" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+DASH = token:"-" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+TILDE = token:"~" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+PLUS = token:"+" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+STAR = token:"*" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+SLASH = token:"/" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+PERCENT = token:"%" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+LEFT_ANGLE = token:"<" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+RIGHT_ANGLE = token:">" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+VERTICAL_BAR = token:"|" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+CARET = token:"^" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+AMPERSAND = token:"&" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+COLON = token:":" _:_? { return node('literal', { literal: token, wsEnd: _ }); }
+
+// From the grammar spec: "Each number sign (#) can be preceded in its line only
+// by spaces or horizontal tabs. It may also be followed by spaces and
+// horizontal tabs, preceding the directive."
+HASH = $(token:"#") whitespace:_? { return "#"; }
+
+DEFINE = wsStart:_? token:$(HASH "define") wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+INCLUDE = wsStart:_? token:$(HASH "include") wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+LINE = wsStart:_? token:$(HASH "line") wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+UNDEF = wsStart:_? token:$(HASH "undef") wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+ERROR = wsStart:_? token:$(HASH "error") wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+PRAGMA = wsStart:_? token:$(HASH "pragma") wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+DEFINED = wsStart:_? token:"defined" wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+IF = wsStart:_? token:$(HASH "if") wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+IFDEF = wsStart:_? token:$(HASH "ifdef") wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+IFNDEF = wsStart:_? token:$(HASH "ifndef") wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+ELIF = wsStart:_? token:$(HASH "elif") wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+ELSE = wsStart:_? token:$(HASH "else") wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+ENDIF = wsStart:_? token:$(HASH "endif") wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+VERSION = wsStart:_? token:$(HASH "version") wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+EXTENSION = wsStart:_? token:$(HASH "extension") wsEnd:terminal { return node('literal', { literal: token, wsStart, wsEnd }); }
+
+IDENTIFIER = identifier:$([A-Za-z_] [A-Za-z_0-9]*) _:_? { return node('identifier', { identifier, wsEnd: _ }); }
+IDENTIFIER_NO_WS = identifier:$([A-Za-z_] [A-Za-z_0-9]*) { return node('identifier', { identifier }); }
+
+// Integers
+integer_constant "number"
+  = $(decimal_constant integer_suffix?)
+  / $(octal_constant integer_suffix?)
+  / $(hexadecimal_constant integer_suffix?)
+
+integer_suffix = [uU]
+
+// Collapsing the above becomes
+decimal_constant = $([1-9] digit*)
+octal_constant = "0" [0-7]*
+hexadecimal_constant = "0" [xX] [0-9a-fA-F]*
+
+digit = [0-9]
+
+// Basically any valid source code
+text_or_control_lines =
+  blocks:(
+    control_line
+    / text:text+ {
+      return node('text', { text: text.join('') });
+    }
+  )+ {
+    return node('segment', { blocks });
+  }
+
+// Any preprocessor or directive line
+control_line "control line"
+  = conditional
+  / line:(
+    define:DEFINE
+      identifier:IDENTIFIER_NO_WS
+      lp:LEFT_PAREN
+      args:(
+        head:IDENTIFIER
+        tail:(COMMA IDENTIFIER)* {
+          return [head, ...tail.flat()];
+        }
+      )?
+      rp:RIGHT_PAREN
+      body:token_string? {
+        return node('define_arguments', { define, identifier, lp, args: args || [], rp, body } )
+      }
+      / define:DEFINE identifier:IDENTIFIER body:token_string? {
+        return node('define', { define, identifier, body } )
+      }
+      // The GLSL spec doesn't define #include, but many engines (Three.js,
+      // Babylon, etc.) use it. The bundle preprocessor expands these nodes
+      / include:INCLUDE path:include_path {
+        return node('include', { include, path } )
+      }
+      / line:LINE value:$digit+ {
+        return node('line', { line, value });
+      }
+      / undef:UNDEF identifier:IDENTIFIER {
+        return node('undef', { undef, identifier });
+      }
+      / error:ERROR message:token_string {
+        return node('error', { error, message });
+      }
+      / pragma:PRAGMA body:token_string {
+        return node('pragma', { pragma, body });
+      }
+      // The cpp preprocessor spec doesn't have version in it, I added it.
+      // "profile" is defined on page 14 of GLSL spec
+      / version:VERSION value:integer_constant profile:token_string? {
+        return node('version', { version, value, profile });
+      }
+      / extension:EXTENSION name:IDENTIFIER colon:COLON behavior:token_string {
+        return node('extension', { extension, name, colon, behavior });
+      }
+    )
+    wsEnd:[\n\r]? {
+      return { ...line, wsEnd };
+    }
+
+// Any series of characters on the same line,
+// for example "abc 123" in "#define A abc 123"
+token_string "token string" = $([^\n\r]+)
+
+// The quoted relative path of a #include "path" directive. Only the quoted
+// form is supported (not the angle bracket <path> system include form).
+include_path "include path" = '"' path:$([^"\n\r]*) '"' _ { return path; }
+
+// Any non-control line. Ending newline for text is optional because program
+// might end on a non-newline
+text "text" = $(!(whitespace? "#") [^\n\r]+ [\n\r]? / [\n\r])
+
+conditional
+  = ifPart:(
+      ifLine:if_line
+      wsEnd:[\n\r]
+      body:text_or_control_lines? {
+        return { ...ifLine, body, wsEnd };
+      }
+    )
+    elseIfParts:(
+      token:ELIF
+      expression:token_string
+      wsEnd: [\n\r]
+      elseIfBody:text_or_control_lines? {
+        return node('elseif', { token, expression, wsEnd, body: elseIfBody });
+      }
+    )*
+    elsePart:(
+      token:ELSE
+      wsEnd: [\n\r]
+      elseBody:text_or_control_lines? {
+        return node('else', { token, wsEnd, body: elseBody });
+      }
+    )?
+    endif:ENDIF
+    wsEnd:[\n\r]? { // optional because the program can end with endif
+      return node('conditional', { ifPart, elseIfParts, elsePart, endif, wsEnd, });
+    }
+
+if_line "if"
+  = token:IFDEF identifier:IDENTIFIER {
+    return node('ifdef', { token, identifier });
+  }
+  / token:IFNDEF identifier:IDENTIFIER {
+    return node('ifndef', { token, identifier });
+  }
+  // Intentionally defer parsing of the expression, macro expansion is first
+  // done on this string, then the expanded expression lexeme is parsed again
+  / token:IF expression:token_string? {
+    return node('if', { token, expression });
+  }
+
+// The following encodes the operator precedence for preprocessor #if
+// expressions, as defined on page 12 of
+// https://www.khronos.org/registry/OpenGL/specs/gl/GLSLangSpec.4.60.pdf
+
+primary_expression "primary expression"
+  = INTCONSTANT
+  / lp:LEFT_PAREN expression:constant_expression rp:RIGHT_PAREN {
+    return node('group', { lp, expression, rp });
+  }
+  / IDENTIFIER
+
+unary_expression "unary expression"
+  // "defined" is a unary operator, it can appear with optional parens. I'm not
+  // sure if it makes sense to have it in the unary_expression section
+  = operator:DEFINED lp:LEFT_PAREN? identifier:IDENTIFIER rp:RIGHT_PAREN? {
+    return node('unary_defined', { operator, lp, identifier, rp, });
+  }
+  / operator:(PLUS / DASH / BANG / TILDE)
+    expression:unary_expression {
+      return node('unary', { operator, expression });
+    }
+  / primary_expression
+
+multiplicative_expression "multiplicative expression"
+  = head:unary_expression
+    tail:(
+      op:(STAR / SLASH / PERCENT)
+      expr:unary_expression
+    )* {
+      return leftAssociate(head, tail);
+    }
+
+additive_expression "additive expression"
+  = head:multiplicative_expression
+    tail:(
+      op:(PLUS / DASH)
+      expr:multiplicative_expression
+    )* {
+      return leftAssociate(head, tail);
+    }
+
+shift_expression "shift expression"
+  = head:additive_expression
+    tail:(
+      op:(RIGHT_OP / LEFT_OP)
+      expr:additive_expression
+    )* {
+      return leftAssociate(head, tail);
+    }
+
+relational_expression "relational expression"
+  = head:shift_expression
+    tail:(
+      op:(LE_OP / GE_OP / LEFT_ANGLE / RIGHT_ANGLE)
+      expr:shift_expression
+    )* {
+      return leftAssociate(head, tail);
+    }
+
+equality_expression "equality expression"
+  = head:relational_expression
+    tail:(
+      op:(EQ_OP / NE_OP)
+      expr:relational_expression
+    )* {
+      return leftAssociate(head, tail);
+    }
+
+and_expression "and expression"
+  = head:equality_expression
+    tail:(
+      op:AMPERSAND
+      expr:equality_expression
+    )* {
+      return leftAssociate(head, tail);
+    }
+
+exclusive_or_expression "exclusive or expression"
+  = head:and_expression
+    tail:(
+      op:CARET
+      expr:and_expression
+    )* {
+      return leftAssociate(head, tail);
+    }
+
+inclusive_or_expression "inclusive or expression"
+  = head:exclusive_or_expression
+    tail:(
+      op:VERTICAL_BAR
+      expr:exclusive_or_expression
+    )* {
+      return leftAssociate(head, tail);
+    }
+
+logical_and_expression "logical and expression"
+  = head:inclusive_or_expression
+    tail:(
+      op:AND_OP
+      expr:inclusive_or_expression
+    )* {
+      return leftAssociate(head, tail);
+    }
+
+logical_or_expression "logical or expression"
+  = head:logical_and_expression
+    tail:(
+      op:OR_OP
+      expr:logical_and_expression
+    )* {
+      return leftAssociate(head, tail);
+    }
+
+// I added this as a maybe entry point to expressions
+constant_expression "constant expression" = logical_or_expression
+
+// The whitespace is optional so that we can put comments immediately after
+// terminals, like void/* comment */
+// The ending whitespace is so that linebreaks can happen after comments
+_ "whitespace or comment" = w:whitespace? rest:(comment whitespace?)* {
+  return collapse(w, rest);
+}
+
+comment
+  = single_comment
+  // Intention is to handle any type of comment case. A multiline comment
+  // can be followed by more multiline comments, or a single comment, and
+  // collapse everything into one array
+  / a:multiline_comment d:(
+    x:whitespace cc:comment { return xnil(x, cc); }
+  )* { return xnil(a, d.flat()); }
+
+single_comment = $('//' [^\n\r]*)
+multiline_comment = $("/*" inner:(!"*/" i:. { return i; })* "*/")
+
+whitespace "whitespace" = $[ \t]+
+
+terminal = ![A-Za-z_0-9] _:_? { return _; }
