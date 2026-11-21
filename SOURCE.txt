@@ -1,0 +1,5 @@
+来源仓库：https://github.com/ShaderFrog/glsl-parser
+冻结 commit：b7868907f520b8c9657d74d87302b8fe99769392
+许可证：ISC（package.json 声明，仓库无 LICENSE 文件）
+导入日期：2026-11-21
+说明：本目录为评测底座，已剥离上游 git 历史，仅保留代码快照。

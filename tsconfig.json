@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "incremental": true,
+    "target": "es5",
+    
+    // This is for VSCode. Without this line, VSCode's Typescript server
+    // includes *DOM* types in typechecks, and complains that location() is
+    // window.location, when in fact it's peggy's location() function.
+    "lib": ["ESNext"],
+
+    // Create ESM modules
+    "module": "NodeNext",
+    // Specify multiple folders that act like `./node_modules/@types`
+    "typeRoots": [
+      "node_modules/@types",
+      "./preprocessor",
+      "./parser"
+    ],
+
+    "moduleResolution": "NodeNext",
+
+    // Generate .d.ts files from TypeScript and JavaScript files in your project
+    "declaration": true,
+    // Specify an output folder for all emitted files.
+    "outDir": "./dist",
+    // Emit additional JavaScript to ease support for importing CommonJS modules. This enables `allowSyntheticDefaultImports` for type compatibility. */
+    "esModuleInterop": true,                             
+    // Ensure that casing is correct in imports
+    "forceConsistentCasingInFileNames": true, 
+    // Enable all strict type-checking options.
+    "strict": true,
+    // Skip type checking all .d.ts files
+    "skipLibCheck": true
+  }
+}
